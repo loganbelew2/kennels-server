@@ -23,6 +23,16 @@ ANIMALS = [
 ]
 
 
+def get_single_animal(id):
+    "function returns one dictionary"
+    requested_animal = None
+
+    for animal in ANIMALS:
+        if animal["id"] == id:
+            requested_animal = animal
+
+    return requested_animal
+
 def get_all_animals():
     "function returns list"
     return ANIMALS
