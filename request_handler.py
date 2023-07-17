@@ -5,15 +5,14 @@ from views import (
     get_all_animals, get_single_animal, get_all_locations,
     get_single_location, get_single_employee, get_all_employees,
     get_all_customers, get_single_customer, create_animal,
-    create_location, create_employee, create_customer, delete_animal,delete_customer,
+    create_location, create_employee, create_customer, delete_animal, 
     delete_employee, delete_location, update_animal, update_customer, update_employee, update_location
 )
-# Here's a class. It inherits from another class.
-# For now, think of a class as a container for functions that
-# work together for a common purpose. In this case, that
-# common purpose is to respond to HTTP requests from a client.
+
+
 class HandleRequests(BaseHTTPRequestHandler):
     '''class'''
+
     def parse_url(self, path):
         '''method of class'''
         # Just like splitting a string in JavaScript. If the
@@ -35,18 +34,10 @@ class HandleRequests(BaseHTTPRequestHandler):
             pass  # Request had trailing slash: /animals/
 
         return (resource, id)  # This is a tuple
-    # This is a Docstring it should be at the beginning of all classes and functions
-    # It gives a description of the class or function
-    #Controls the functionality of any GET, PUT, POST, DELETE requests to the server
 
-    # Here's a class function
-
-    # Here's a method on the class that overrides the parent's method.
-    # It handles any GET request.
     def do_GET(self):
         '''function to set the get requests'''
-        self._set_headers(200)
-        response = {}  # Default response
+        response = {}
 
         # Parse the URL and capture the tuple that is returned
         (resource, id) = self.parse_url(self.path)
@@ -57,35 +48,36 @@ class HandleRequests(BaseHTTPRequestHandler):
 
             else:
                 response = get_all_animals()
-        
+
         if resource == "locations":
             if id is not None:
                 response = get_single_location(id)
-            
+
             else:
                 response = get_all_locations()
 
         if resource == "employees":
             if id is not None:
                 response = get_single_employee(id)
-            
+
             else:
                 response = get_all_employees()
-        
+
         if resource == "customers":
             if id is not None:
                 response = get_single_customer(id)
-        
+
             else:
                 response = get_all_customers()
 
+        if response is None:
+            self._set_headers(404)
+        else:
+            self._set_headers(200)
         self.wfile.write(json.dumps(response).encode())
 
-    # Here's a method on the class that overrides the parent's method.
-    # It handles any POST request.
     def do_POST(self):
         '''post dict'''
-        self._set_headers(201)
         content_len = int(self.headers.get('content-length', 0))
         post_body = self.rfile.read(content_len)
 
@@ -93,23 +85,32 @@ class HandleRequests(BaseHTTPRequestHandler):
         post_body = json.loads(post_body)
 
         # Parse the URL
-        (resource,_) = self.parse_url(self.path)
+        (resource, _) = self.parse_url(self.path)
 
-        # Initialize new animal
-        
         new_post = None
-        # Add a new animal to the list. Don't worry about
-        # the orange squiggle, you'll define the create_animal
-        # function next.
+        
         if resource == "animals":
             new_post = create_animal(post_body)
-        
+
         if resource == "locations":
             new_post = create_location(post_body)
+            if "name" in post_body and "address" in post_body:
+                self._set_headers(201)
+                new_post = create_location(post_body)
+            else:
+                self._set_headers(400)
+                missing_fields = []
+                if "name" not in post_body:
+                    missing_fields.append("name")
+                if "address" not in post_body:
+                    missing_fields.append("address")
+                new_post = {
+                    "message": f'{", ".join(missing_fields)} is required' if missing_fields else ""
+                }
 
         if resource == "employees":
             new_post = create_employee(post_body)
-        
+
         if resource == "customers":
             new_post = create_customer(post_body)
         self.wfile.write(json.dumps(new_post).encode())
@@ -131,7 +132,7 @@ class HandleRequests(BaseHTTPRequestHandler):
 
         if resource == "customers":
             update_customer(id, post_body)
-        
+
         if resource == "employee":
             update_employee(id, post_body)
 
@@ -166,31 +167,37 @@ class HandleRequests(BaseHTTPRequestHandler):
                          'X-Requested-With, Content-Type, Accept')
         self.end_headers()
 
-
     def do_DELETE(self):
         '''Set a 204 response code'''
-        self._set_headers(204)
+        
 
     # Parse the URL
         (resource, id) = self.parse_url(self.path)
-
+        is_customer = 0
     # Delete a single animal from the list
         if resource == "animals":
             delete_animal(id)
-        
+
         if resource == "customers":
-            delete_customer(id)
-        
+            is_customer = 1
+
         if resource == "locations":
             delete_location(id)
-        
+
         if resource == "employees":
             delete_employee(id)
 
-    # Encode the new animal and send in response
-        self.wfile.write("".encode())
+        if is_customer > 0:
+            self.send_response(405)
+            self.send_header('Allow', 'GET, POST, PUT')  # Specify the allowed methods
+            self.end_headers()
+            self.wfile.write(b"DELETE method is not allowed for this resource.")
+        else:
+            self.send_response(204)
 # This function is not inside the class. It is the starting
 # point of this application.
+
+
 def main():
     """Starts the server on port 8088 using the HandleRequests class
     """
